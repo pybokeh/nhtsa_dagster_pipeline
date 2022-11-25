@@ -1,0 +1,4 @@
+load_from:
+  - python_file:
+      relative_path: repositories/nhtsa_repo.py
+      executable_path: /home/pybokeh/envs/nhtsa_dev/bin/python3

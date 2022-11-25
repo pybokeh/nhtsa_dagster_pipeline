@@ -1,0 +1,14 @@
+use database ipl_tv_db;
+use schema vehicle_data_eval;
+
+create table nhtsa_raw_json_pl (
+    vin char(17),
+    raw_json VARIANT
+);
+
+COPY INTO vehicle_data_eval.nhtsa_raw_json_pl(vin, raw_json)  
+FROM (
+    -- Extract the 17-digit VIN from the file name.  NOTE: $FILENAME includes full path beginning with: @~/
+    -- VIN starts in position 18 per path: @~/nhtsa/json_pl/
+    SELECT substring(METADATA$FILENAME,18,17), T.* 
+        FROM  @~/nhtsa/json_pl(FILE_FORMAT => json_format) as T) on_error='SKIP_FILE';
