@@ -7,6 +7,7 @@ from datetime import datetime
 from urllib.error import HTTPError
 import duckdb
 import json
+import os
 import pandas as pd
 import requests
 import traceback
@@ -16,9 +17,10 @@ import traceback
     config_schema={'table_name': str}
 )
 def upload_df_to_duckdb(context, df: pd.DataFrame) -> Nothing:
-    con = duckdb.connect(database='nhtsa.duckdb', read_only=False)
-    con.execute("CREATE TABLE my_table AS SELECT * FROM my_df")
-    pass
+    with duckdb.connect(database=os.getenv("DUCKDB_PATH"), read_only=False) as con:
+        table_name = context.op_config['table_name']
+        con.execute(f"DROP TABLE IF EXISTS {table_name}")
+        con.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df")
 
 
 @op
