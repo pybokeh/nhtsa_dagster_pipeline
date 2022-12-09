@@ -4,6 +4,7 @@ from dagster import (
     Nothing,
 )
 from datetime import datetime
+from tqdm import tqdm
 from urllib.error import HTTPError
 import duckdb
 import json
@@ -68,10 +69,12 @@ def fetch_manufacturers(context) -> pd.DataFrame:
 @op
 def fetch_mfr_id_list(context) -> list:
     """
-    Fetch a list of manufacturer ID from duckdb
+    Fetch list of manufacturer ID from duckdb
     """
+    with duckdb.connect(database=os.getenv("DUCKDB_PATH"), read_only=False) as con:
+        df_mfr_ids = con.execute("SELECT distinct Mfr_ID FROM manufacturers").fetchdf()
 
-    pass
+    return df_mfr_ids['Mfr_ID'].tolist()
 
 
 @op
@@ -105,7 +108,10 @@ def fetch_wmi_list(context) -> list:
     """
     Fetch a list of WMI codes from duckdb
     """
-    pass
+    with duckdb.connect(database=os.getenv("DUCKDB_PATH"), read_only=False) as con:
+        df_wmi = con.execute("SELECT distinct wmi FROM wmi_by_mfr").fetchdf()
+
+    return df_wmi['wmi'].tolist()
 
 
 @op
@@ -114,13 +120,15 @@ def fetch_makes_from_wmi(context, wmi_list: list) -> pd.DataFrame:
     Obtain make information by WMI codes from NHTSA's API
     """
     df_list = []
-    for wmi in wmi_list:
+    for wmi in tqdm(wmi_list):
         try:
+            context.log.info(f"Pulling data for wmi: {wmi}")
             url = f'https://vpic.nhtsa.dot.gov/api/vehicles/decodewmi/{wmi}?format=json'
-            res = requests.get(url)
+            res = requests.get(url, timeout=10)
             df = pd.json_normalize(json.loads(res.text), record_path=['Results'])
             df = df.assign(WMI=wmi)
             df_list.append(df)
+            context.log.info(f"wmi added: {wmi}")
         except HTTPError as err:
             if err.code == 404:
                 context.log.debug(f'wmi code that failed: {wmi} - {repr(err)}')
@@ -129,6 +137,8 @@ def fetch_makes_from_wmi(context, wmi_list: list) -> pd.DataFrame:
                 raise
         except json.JSONDecodeError as err:
             context.log.debug(f'wmi code that failed: {wmi} - {repr(err)}')
+        except requests.exceptions.Timeout:
+            context.log.debug(f"Timeout error:  Timeout exceeded 10 seconds for wmi: {wmi}")
 
     df_concat = pd.concat(df_list, ignore_index=True)
     context.log.info(f"# of (rows, columns): {df_concat.shape}")
@@ -151,11 +161,14 @@ def fetch_makes(context) -> pd.DataFrame:
 
 
 @op
-def fetch_make_id(context) -> list:
+def fetch_make_id_list(context) -> list:
     """
     Fetch a list of make IDs from DuckDB
     """
-    pass
+    with duckdb.connect(database=os.getenv("DUCKDB_PATH"), read_only=False) as con:
+        df_make_ids = con.execute("SELECT distinct make_id FROM makes").fetchdf()
+
+    return df_make_ids['make_id'].tolist()
 
 
 @op

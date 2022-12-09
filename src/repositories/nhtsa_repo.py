@@ -3,7 +3,7 @@ from ops.nhtsa_ops import (
     fetch_manufacturers,
     fetch_mfr_id_list,
     fetch_makes,
-    fetch_make_id,
+    fetch_make_id_list,
     fetch_model_names,
     fetch_wmi_by_manufacturer_id,
     fetch_wmi_list,
@@ -76,7 +76,7 @@ def fetch_3_model_name_job():
     """
     Job to extract model names from NHTSA's API
     """
-    upload_models_to_duckdb(fetch_model_names(fetch_make_id()))
+    upload_models_to_duckdb(fetch_model_names(fetch_make_id_list()))
 
 
 @repository
